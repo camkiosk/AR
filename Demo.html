@@ -32,8 +32,20 @@
 			scene.add(ambientLight);
 
             var hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444);
-            hemiLight.position.set(0, 20, 0);
-            scene.add(hemiLight);
+            hemiLight.position.set(0, 20, 20);
+			scene.add(hemiLight);
+
+
+            light = new THREE.DirectionalLight(0xffffff);
+            light.position.set(0, 200, 100);
+            light.castShadow = true;
+            light.shadow.camera.top = 180;
+            light.shadow.camera.bottom = - 100;
+            light.shadow.camera.left = - 120;
+            light.shadow.camera.right = 120;
+			scene.add(light);
+
+
 
 			camera = new THREE.Camera();
 			scene.add(camera);
@@ -42,8 +54,9 @@
 				antialias: true,
 				alpha: true
 			});
+
 			renderer.setClearColor(new THREE.Color('lightgrey'), 0)
-			renderer.setSize(640, 480);
+			//renderer.setSize(640, 480);
 			renderer.domElement.style.position = 'absolute'
 			renderer.domElement.style.top = '0px'
 			renderer.domElement.style.left = '0px'
@@ -53,6 +66,20 @@
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
             renderer.toneMappingExposure = 1;
 			renderer.outputEncoding = THREE.sRGBEncoding;
+
+
+
+
+
+            //renderer.shadowMap.enabled = true;
+            //ambientLight.castShadow = true;
+
+
+            
+
+
+
+
 			// back to original
 			document.body.appendChild(renderer.domElement);
 
@@ -60,16 +87,24 @@
 			deltaTime = 0;
 			totalTime = 0;
 
+            //renderer.render(scene, camera);
+
 			////////////////////////////////////////////////////////////
 			// setup arToolkitSource
 			////////////////////////////////////////////////////////////
 
 			arToolkitSource = new THREEx.ArToolkitSource({
 				sourceType: 'webcam',
+                // resolution of at which we initialize the source image
+                //sourceWidth: 640,
+                //sourceHeight: 480,
+                // resolution displayed for the source 
+                //displayWidth: window.innerWidth,
+                //displayHeight: window.innerHeight,
 			});
 
 			function onResize() {
-				arToolkitSource.onResize()
+                arToolkitSource.onResize()
 				arToolkitSource.copySizeTo(renderer.domElement)
 				if (arToolkitContext.arController !== null) {
 					arToolkitSource.copySizeTo(arToolkitContext.arController.canvas)
@@ -77,8 +112,8 @@
 			}
 
 			arToolkitSource.init(function onReady() {
-				onResize();
-                onResize()
+                setInterval(function () { onResize() }, 100);
+				//onResize() // not working for some reason
 			});
 
 			// handle resize event
@@ -148,7 +183,7 @@
 			mesh1 = new THREE.Mesh(geometry1, material1);
 			mesh1.position.y = 1.5;
 
-			// markerRoot1.add( mesh1 );
+		
 
 			smoothedRoot.add(mesh1);
 
@@ -156,14 +191,30 @@
 
             new THREE.GLTFLoader()
                 .setPath('models/')
-				.load('donut.glb', function (gltf) {
+                .load('ya.gltf', function (gltf) {
                     gltf.scene.scale.set(6, 6, 6);
                     gltf.scene.position.x = 0;				    //Position (x = right+ left-) 
                     gltf.scene.position.y = 3.125;				    //Position (y = up+, down-)
-                    gltf.scene.position.z = 0;				    //Position (z = front +, back-)
-					scene.add(gltf.scene);
+					gltf.scene.position.z = 0;
+					//Position (z = front +, back-)
+                    gltf.scene.castShadow = true;
                     smoothedRoot.add(gltf.scene)
 				});
+
+
+
+			//new THREE.GLTFLoader()
+   //             .setPath('models/')
+   //             .load('01Alocasia_obj.glb', function (gltf) {
+   //                 gltf.scene.scale.set(0.003, 0.003, 0.003);
+   //                 gltf.scene.position.x = 0;				    //Position (x = right+ left-) 
+   //                 gltf.scene.position.y = 0;				    //Position (y = up+, down-)
+   //                 gltf.scene.position.z = 0;				    //Position (z = front +, back-)
+   //                 //scene.add(gltf.scene);
+   //                 gltf.scene.castShadow = true;
+   //                 smoothedRoot.add(gltf.scene)
+   //             });
+
 
 
 
@@ -174,6 +225,7 @@
             //dracoLoader.setDecoderPath('/examples/js/libs/draco/');
             //loader.setDRACOLoader(dracoLoader);
 
+            
            
 		}
 
