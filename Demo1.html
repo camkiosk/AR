@@ -1,0 +1,345 @@
+﻿<!DOCTYPE html>
+<head>
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <title>Hello, world!</title>
+    <!-- include three.js library -->
+    <script src="https://aframe.io/releases/1.0.4/aframe.min.js"></script>
+    <!-- we import arjs version without NFT but with marker + location based support -->
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/three.js/build/ar.js"></script>
+</head>
+
+<html>
+<body style='margin : 0px; overflow: hidden; font-family: Monospace;'>
+
+
+    <script>
+
+		var scene, camera, renderer, clock, deltaTime, totalTime;
+
+		var arToolkitSource, arToolkitContext, smoothedControls;
+
+		var markerRoot1, markerRoot2;
+
+        var portal, portalMaterial;
+
+		var mesh1;
+
+		initialize();
+		animate();
+
+		function initialize() {
+			scene = new THREE.Scene();
+
+			let ambientLight = new THREE.AmbientLight(0xcccccc, 0.5);
+			scene.add(ambientLight);
+
+            var hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444);
+            hemiLight.position.set(0, 20, 20);
+			scene.add(hemiLight);
+
+
+            light = new THREE.DirectionalLight(0xffffff);
+            light.position.set(0, 200, 100);
+            light.castShadow = true;
+            light.shadow.camera.top = 180;
+            light.shadow.camera.bottom = - 100;
+            light.shadow.camera.left = - 120;
+            light.shadow.camera.right = 120;
+			scene.add(light);
+
+
+
+			camera = new THREE.Camera();
+			scene.add(camera);
+
+			renderer = new THREE.WebGLRenderer({
+				antialias: true,
+				alpha: true
+			});
+
+			renderer.setClearColor(new THREE.Color('lightgrey'), 0)
+			//renderer.setSize(640, 480);
+			renderer.domElement.style.position = 'absolute'
+			renderer.domElement.style.top = '0px'
+			renderer.domElement.style.left = '0px'
+			// added from nice image
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1;
+			renderer.outputEncoding = THREE.sRGBEncoding;
+
+
+
+
+
+            //renderer.shadowMap.enabled = true;
+            //ambientLight.castShadow = true;
+
+
+
+
+
+
+
+			// back to original
+			document.body.appendChild(renderer.domElement);
+
+			clock = new THREE.Clock();
+			deltaTime = 0;
+			totalTime = 0;
+
+            //renderer.render(scene, camera);
+
+			////////////////////////////////////////////////////////////
+			// setup arToolkitSource
+			////////////////////////////////////////////////////////////
+
+			arToolkitSource = new THREEx.ArToolkitSource({
+				sourceType: 'webcam',
+                // resolution of at which we initialize the source image
+                //sourceWidth: 640,
+                //sourceHeight: 480,
+                // resolution displayed for the source
+                //displayWidth: window.innerWidth,
+                //displayHeight: window.innerHeight,
+			});
+
+			function onResize() {
+                arToolkitSource.onResize()
+				arToolkitSource.copySizeTo(renderer.domElement)
+				if (arToolkitContext.arController !== null) {
+					arToolkitSource.copySizeTo(arToolkitContext.arController.canvas)
+				}
+			}
+
+			arToolkitSource.init(function onReady() {
+                setInterval(function () { onResize() }, 100);
+				//onResize() // not working for some reason
+			});
+
+			// handle resize event
+			window.addEventListener('resize', function () {
+				onResize()
+			});
+
+			////////////////////////////////////////////////////////////
+			// setup arToolkitContext
+			////////////////////////////////////////////////////////////
+
+            // create atToolkitContext
+            arToolkitContext = new THREEx.ArToolkitContext({
+                cameraParametersUrl: 'data/camera_para.dat',
+                detectionMode: 'mono_and_matrix',
+                matrixCodeType: '4x4_BCH_13_5_5',
+                imageSmoothingEnabled: true,
+			});
+
+			// create atToolkitContext
+			//arToolkitContext = new THREEx.ArToolkitContext({
+			//	cameraParametersUrl: 'data/camera_para.dat',
+			//	detectionMode: 'mono'
+			//});
+
+			// copy projection matrix to camera when initialization complete
+			arToolkitContext.init(function onCompleted() {
+				camera.projectionMatrix.copy(arToolkitContext.getProjectionMatrix());
+			});
+
+			////////////////////////////////////////////////////////////
+			// setup markerRoots
+			////////////////////////////////////////////////////////////
+
+			// build markerControls
+			markerRoot1 = new THREE.Group();
+			scene.add(markerRoot1);
+
+            let markerControls1 = new THREEx.ArMarkerControls(arToolkitContext, markerRoot1, {
+                type: 'barcode', barcodeValue: 1,
+			})
+
+			//let markerControls1 = new THREEx.ArMarkerControls(arToolkitContext, markerRoot1, {
+			//	type: 'pattern',
+			//	patternUrl: "data/hiro.patt",
+			//})
+
+			// interpolates from last position to create smoother transitions when moving.
+			// parameter lerp values near 0 are slow, near 1 are fast (instantaneous).
+			let smoothedRoot = new THREE.Group();
+			scene.add(smoothedRoot);
+			smoothedControls = new THREEx.ArSmoothedControls(smoothedRoot, {
+				lerpPosition: 0.5,
+				lerpQuaternion: 0.5,
+				lerpScale: 1,
+				// minVisibleDelay: 1,
+				// minUnvisibleDelay: 1,
+			});
+
+			let geometry1 = new THREE.CubeGeometry(1, 3, 1);
+			let material1 = new THREE.MeshNormalMaterial({
+				transparent: true,
+				opacity: 0.5,
+				side: THREE.DoubleSide
+			});
+
+			mesh1 = new THREE.Mesh(geometry1, material1);
+			mesh1.position.y = 1.5;
+
+
+
+			//smoothedRoot.add(mesh1);
+
+
+            let loader = new THREE.TextureLoader();
+
+            // material for portal (for debugging)
+
+            let defaultMaterial = new THREE.MeshBasicMaterial({
+                map: loader.load("images/sphere-colored.png"),
+                color: 0x444444,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.6
+            });
+
+            let portalWidth = 2;
+            let portalHeight = 4;
+            let portalBorder = 0.1;
+
+            portal = new THREE.Mesh(
+                new THREE.PlaneGeometry(portalWidth, portalHeight),
+                defaultMaterial
+            );
+            portal.position.y = portalHeight / 2 + portalBorder;
+            portal.layers.set(1);
+            smoothedRoot.add(portal);
+
+            camera.layers.enable(1);
+
+            portalMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00, side: THREE.DoubleSide, transparent: true, opacity: 0.75 });
+
+
+            let portalBorderMesh = new THREE.Mesh(
+                new THREE.PlaneGeometry(portalWidth + 2 * portalBorder, portalHeight + 2 * portalBorder),
+                portalMaterial
+            );
+            portalBorderMesh.position.y = portal.position.y;
+            portalBorderMesh.layers.set(0);
+			smoothedRoot.add(portalBorderMesh);
+
+            // the world beyond the portal
+
+            // textures from http://www.humus.name/
+            let skyMaterialArray = [
+                new THREE.MeshBasicMaterial({ map: loader.load("images/mountain/posx.jpg"), side: THREE.BackSide }),
+                new THREE.MeshBasicMaterial({ map: loader.load("images/mountain/negx.jpg"), side: THREE.BackSide }),
+                new THREE.MeshBasicMaterial({ map: loader.load("images/mountain/posy.jpg"), side: THREE.BackSide }),
+                new THREE.MeshBasicMaterial({ map: loader.load("images/mountain/negy.jpg"), side: THREE.BackSide }),
+                new THREE.MeshBasicMaterial({ map: loader.load("images/mountain/posz.jpg"), side: THREE.BackSide }),
+                new THREE.MeshBasicMaterial({ map: loader.load("images/mountain/negz.jpg"), side: THREE.BackSide }),
+            ];
+            let skyMesh = new THREE.Mesh(
+                new THREE.CubeGeometry(30, 30, 30),
+                skyMaterialArray);
+            skyMesh.layers.set(2);
+            smoothedRoot.add(skyMesh);
+
+
+
+
+
+
+            // Optional: Provide a DRACOLoader instance to decode compressed mesh data
+			//var dracoLoader = new DRACOLoader();
+            //dracoLoader.setDecoderPath('https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/js/libs/draco/'); // use a full url path
+            //dracoLoader.setDecoderPath('/examples/js/libs/draco/');
+            //loader.setDRACOLoader(dracoLoader);
+
+
+
+		}
+
+
+		function update() {
+
+            // portal ring color cycle
+			portalMaterial.color.setHSL(totalTime / 10 % 1, 1, 0.75);
+
+			// update artoolkit on every frame
+			if (arToolkitSource.ready !== false)
+				arToolkitContext.update(arToolkitSource.domElement);
+
+			// additional code for smoothed controls
+			smoothedControls.update(markerRoot1);
+		}
+
+
+		function render() {
+            //renderer.render( scene, camera );
+
+            let gl = renderer.context;
+
+            // clear buffers now: color, depth, stencil 
+            renderer.clear(true, true, true);
+            // do not clear buffers before each render pass
+            renderer.autoClear = false;
+
+            // FIRST PASS
+            // goal: using the stencil buffer, place 1's in position of first portal (layer 1)
+
+            // enable the stencil buffer
+            gl.enable(gl.STENCIL_TEST);
+
+            // layer 1 contains only the first portal
+            camera.layers.set(1);
+
+            gl.stencilFunc(gl.ALWAYS, 1, 0xff);
+            gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
+            gl.stencilMask(0xff);
+
+            // only write to stencil buffer (not color or depth)
+            gl.colorMask(false, false, false, false);
+            gl.depthMask(false);
+
+            renderer.render(scene, camera);
+
+            // SECOND PASS
+            // goal: render skybox (layer 2) but only through portal
+
+            gl.colorMask(true, true, true, true);
+            gl.depthMask(true);
+
+            gl.stencilFunc(gl.EQUAL, 1, 0xff);
+            gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+
+            camera.layers.set(2);
+            renderer.render(scene, camera);
+
+            // FINAL PASS
+            // goal: render the rest of the scene (layer 0)
+
+            // using stencil buffer simplifies drawing border around portal
+            gl.stencilFunc(gl.NOTEQUAL, 1, 0xff);
+            gl.colorMask(true, true, true, true);
+            gl.depthMask(true);
+
+            camera.layers.set(0); // layer 0 contains portal border mesh
+            renderer.render(scene, camera);
+
+            // set things back to normal
+            renderer.autoClear = true;
+		}
+
+
+		function animate() {
+			requestAnimationFrame(animate);
+			deltaTime = clock.getDelta();
+			totalTime += deltaTime;
+			update();
+			render();
+		}
+
+    </script>
+
+</body>
+</html>
